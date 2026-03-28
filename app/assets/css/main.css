@@ -1,0 +1,284 @@
+/* Aero Vista Inspired Design System */
+
+/* Import tailwind base (handled by @nuxt/ui) */
+
+:root {
+  --aero-bg-deep: #030912;
+  --aero-bg-dark: #060f1f;
+  --aero-bg-panel: rgba(6, 18, 42, 0.7);
+  --aero-bg-glass: rgba(79, 195, 247, 0.05);
+  --aero-bg-glass-hover: rgba(79, 195, 247, 0.1);
+  --aero-border: rgba(79, 195, 247, 0.18);
+  --aero-border-bright: rgba(79, 195, 247, 0.4);
+  --aero-glow: rgba(79, 195, 247, 0.6);
+  --aero-glow-strong: rgba(0, 229, 255, 0.8);
+  --aero-text: #e3f2fd;
+  --aero-text-dim: rgba(179, 229, 252, 0.6);
+  --aero-accent: #4fc3f7;
+  --aero-accent-bright: #00e5ff;
+  --aero-accent-dim: #0288d1;
+  --aero-danger: #ef5350;
+  --aero-success: #26c6da;
+  --aero-warning: #ffa726;
+}
+
+/* Global reset & base */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--aero-bg-deep);
+  color: var(--aero-text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#__nuxt {
+  width: 100%;
+  height: 100%;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--aero-border-bright);
+  border-radius: 2px;
+}
+
+/* Glass Panel Effect */
+.glass-panel {
+  background: var(--aero-bg-panel);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--aero-border);
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 1px rgba(79, 195, 247, 0.05) inset,
+    0 4px 32px rgba(0, 0, 0, 0.5),
+    0 0 60px rgba(79, 195, 247, 0.03);
+}
+
+/* Glow text */
+.text-glow {
+  text-shadow: 0 0 10px var(--aero-glow), 0 0 20px rgba(79, 195, 247, 0.3);
+}
+
+/* Neon border */
+.neon-border {
+  border: 1px solid var(--aero-accent);
+  box-shadow: 0 0 8px var(--aero-glow), inset 0 0 8px rgba(79, 195, 247, 0.1);
+}
+
+/* Aero Button Base */
+.aero-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--aero-border);
+  background: var(--aero-bg-glass);
+  color: var(--aero-text);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.aero-btn:hover {
+  background: var(--aero-bg-glass-hover);
+  border-color: var(--aero-accent);
+  box-shadow: 0 0 12px rgba(79, 195, 247, 0.3), inset 0 0 8px rgba(79, 195, 247, 0.05);
+  color: var(--aero-accent-bright);
+}
+
+.aero-btn:active {
+  transform: scale(0.97);
+  box-shadow: 0 0 6px rgba(79, 195, 247, 0.2);
+}
+
+.aero-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.aero-btn-primary {
+  background: rgba(2, 136, 209, 0.2);
+  border-color: var(--aero-accent);
+  color: var(--aero-accent-bright);
+}
+
+.aero-btn-primary:hover {
+  background: rgba(2, 136, 209, 0.35);
+  box-shadow: 0 0 20px rgba(79, 195, 247, 0.5), inset 0 0 12px rgba(79, 195, 247, 0.1);
+}
+
+.aero-btn-danger {
+  border-color: rgba(239, 83, 80, 0.4);
+  color: #ef9a9a;
+}
+
+.aero-btn-danger:hover {
+  background: rgba(239, 83, 80, 0.15);
+  border-color: var(--aero-danger);
+  box-shadow: 0 0 12px rgba(239, 83, 80, 0.3);
+  color: #ff8a80;
+}
+
+.aero-btn-active {
+  background: rgba(0, 229, 255, 0.15);
+  border-color: var(--aero-accent-bright);
+  color: var(--aero-accent-bright);
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.4), inset 0 0 8px rgba(0, 229, 255, 0.1);
+}
+
+/* Input styling */
+.aero-input {
+  background: rgba(6, 18, 42, 0.8);
+  border: 1px solid var(--aero-border);
+  border-radius: 6px;
+  color: var(--aero-text);
+  padding: 6px 10px;
+  font-size: 13px;
+  outline: none;
+  transition: all 0.2s ease;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.aero-input:focus {
+  border-color: var(--aero-accent);
+  box-shadow: 0 0 8px rgba(79, 195, 247, 0.3);
+}
+
+/* Divider */
+.aero-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--aero-border);
+  border-radius: 1px;
+}
+
+/* Stat badge */
+.stat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: rgba(6, 18, 42, 0.8);
+  border: 1px solid var(--aero-border);
+  border-radius: 20px;
+  font-size: 12px;
+  color: var(--aero-text-dim);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.stat-badge .stat-value {
+  color: var(--aero-accent);
+  font-weight: 600;
+}
+
+/* Animated glow ring */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(79, 195, 247, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(79, 195, 247, 0.6), 0 0 40px rgba(79, 195, 247, 0.2); }
+}
+
+.playing-indicator {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Scanlines overlay for retro hi-tech feel */
+.scanlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 2px,
+    rgba(0, 0, 0, 0.08) 2px,
+    rgba(0, 0, 0, 0.08) 4px
+  );
+  border-radius: inherit;
+  z-index: 2;
+}
+
+/* Tooltip */
+.aero-tooltip {
+  position: relative;
+}
+
+.aero-tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(6, 18, 42, 0.95);
+  border: 1px solid var(--aero-border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  white-space: nowrap;
+  color: var(--aero-text);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 100;
+}
+
+.aero-tooltip:hover::after {
+  opacity: 1;
+}
+
+/* Speed slider */
+.speed-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100px;
+  height: 4px;
+  background: linear-gradient(to right, var(--aero-accent) var(--fill, 50%), rgba(79, 195, 247, 0.15) var(--fill, 50%));
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.speed-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--aero-accent);
+  border: 2px solid var(--aero-bg-deep);
+  box-shadow: 0 0 6px var(--aero-glow);
+  cursor: pointer;
+}
+
+.speed-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--aero-accent);
+  border: 2px solid var(--aero-bg-deep);
+  box-shadow: 0 0 6px var(--aero-glow);
+  cursor: pointer;
+}
