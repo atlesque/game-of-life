@@ -22,6 +22,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 
 const props = defineProps<{
   grid: Uint8Array
+  aliveIndices: Uint32Array
   gridCols: number
   gridRows: number
   isDrawMode: boolean
@@ -59,8 +60,8 @@ let bloomPass: UnrealBloomPass
 
 // Instanced mesh for alive cells
 let aliveMesh: THREE.InstancedMesh
-// Background grid mesh
-let gridMesh: THREE.InstancedMesh
+// Background grid mesh (textured quad)
+let gridMesh: THREE.Mesh
 
 const dummy = new THREE.Object3D()
 const tempColor = new THREE.Color()
@@ -74,6 +75,17 @@ let lastPaintedRow = -1
 // View state
 let viewWidth = 0
 let viewHeight = 0
+
+// Dirty flag — skip updateMesh when grid hasn't changed
+let gridDirty = true
+watch(() => props.grid, () => { gridDirty = true })
+
+// Shimmer throttle — update color wave every 200ms instead of every frame
+let shimmerTick = 0
+let lastShimmerUpdate = 0
+
+// Resize debounce timer
+let resizeTimer: ReturnType<typeof setTimeout> | null = null
 
 // ──────────────────────────────────────────────────────
 // Init Three.js
@@ -125,10 +137,10 @@ function initThree() {
   composer.addPass(new RenderPass(scene, camera))
 
   bloomPass = new UnrealBloomPass(
-    new THREE.Vector2(w, h),
-    0.65, // subtle but clear glow
-    0.55, // medium spread
-    0.6, // higher threshold = only bright cells glow
+    new THREE.Vector2(w * 0.5, h * 0.5),
+    0.5, // subtle but clear glow
+    0.4, // medium spread
+    0.65, // higher threshold = only bright cells glow
   )
   composer.addPass(bloomPass)
   composer.addPass(new OutputPass())
@@ -173,28 +185,35 @@ function updateCamera(w: number, h: number) {
 }
 
 function createGridBackground() {
-  const dotSize = 1.2
-  const dotGeo = new THREE.PlaneGeometry(dotSize, dotSize)
-  const dotMat = new THREE.MeshBasicMaterial({
-    color: 0x0d2145,
-    depthWrite: false,
-  })
-  const totalDots = props.gridCols * props.gridRows
-  gridMesh = new THREE.InstancedMesh(dotGeo, dotMat, totalDots)
-  gridMesh.frustumCulled = false
-
-  let i = 0
+  // Render grid dots to an offscreen canvas once, then use as a single textured quad
+  const texCols = props.gridCols * 4
+  const texRows = props.gridRows * 4
+  const offCanvas = document.createElement('canvas')
+  offCanvas.width = texCols
+  offCanvas.height = texRows
+  const ctx = offCanvas.getContext('2d')!
+  ctx.fillStyle = '#0d2145'
   for (let row = 0; row < props.gridRows; row++) {
     for (let col = 0; col < props.gridCols; col++) {
-      const { x, y } = cellToWorld(col, row)
-      dummy.position.set(x, y, -1)
-      dummy.rotation.set(0, 0, 0)
-      dummy.scale.set(1, 1, 1)
-      dummy.updateMatrix()
-      gridMesh.setMatrixAt(i++, dummy.matrix)
+      ctx.fillRect(col * 4 + 1.5, row * 4 + 1.5, 1, 1)
     }
   }
-  gridMesh.instanceMatrix.needsUpdate = true
+
+  const texture = new THREE.CanvasTexture(offCanvas)
+  texture.minFilter = THREE.NearestFilter
+  texture.magFilter = THREE.NearestFilter
+
+  const gridW = props.gridCols * CELL_SIZE
+  const gridH = props.gridRows * CELL_SIZE
+  const geo = new THREE.PlaneGeometry(gridW, gridH)
+  const mat = new THREE.MeshBasicMaterial({
+    map: texture,
+    depthWrite: false,
+    transparent: true,
+    opacity: 0.5,
+  })
+  gridMesh = new THREE.Mesh(geo, mat)
+  gridMesh.position.z = -1
   scene.add(gridMesh)
 }
 
@@ -228,28 +247,32 @@ function canvasToWorld(canvasX: number, canvasY: number): { wx: number; wy: numb
 // ──────────────────────────────────────────────────────
 function updateMesh() {
   if (!aliveMesh) return
-  let count = 0
-  const tick = Date.now() * 0.0005 // slow shimmer
+  const indices = props.aliveIndices
+  const count = indices.length
+  const cols = props.gridCols
 
-  for (let row = 0; row < props.gridRows; row++) {
-    for (let col = 0; col < props.gridCols; col++) {
-      if (!props.grid[row * props.gridCols + col]) continue
+  // Throttle shimmer tick to 200ms
+  const now = performance.now()
+  if (now - lastShimmerUpdate > 200) {
+    shimmerTick = now * 0.0005
+    lastShimmerUpdate = now
+  }
 
-      const { x, y } = cellToWorld(col, row)
+  for (let i = 0; i < count; i++) {
+    const idx = indices[i]
+    const col = idx % cols
+    const row = Math.floor(idx / cols)
+    const { x, y } = cellToWorld(col, row)
 
-      dummy.position.set(x, y, 0)
-      dummy.rotation.set(0, 0, 0)
-      dummy.scale.set(1, 1, 1)
-      dummy.updateMatrix()
-      aliveMesh.setMatrixAt(count, dummy.matrix)
+    dummy.position.set(x, y, 0)
+    dummy.rotation.set(0, 0, 0)
+    dummy.scale.set(1, 1, 1)
+    dummy.updateMatrix()
+    aliveMesh.setMatrixAt(i, dummy.matrix)
 
-      // Subtle per-cell shimmer based on position (no time-based wave to avoid overbloom)
-      const shimmer = (Math.sin(col * 0.7 + row * 0.5 + tick) * 0.5 + 0.5) * 0.4
-      tempColor.lerpColors(COLOR_ALIVE_DIM, COLOR_ALIVE_BRIGHT, 0.35 + shimmer)
-      aliveMesh.setColorAt(count, tempColor)
-
-      count++
-    }
+    const shimmer = (Math.sin(col * 0.7 + row * 0.5 + shimmerTick) * 0.5 + 0.5) * 0.4
+    tempColor.lerpColors(COLOR_ALIVE_DIM, COLOR_ALIVE_BRIGHT, 0.35 + shimmer)
+    aliveMesh.setColorAt(i, tempColor)
   }
 
   aliveMesh.count = count
@@ -266,7 +289,10 @@ let rafId: number | null = null
 
 function renderLoop() {
   rafId = requestAnimationFrame(renderLoop)
-  updateMesh()
+  if (gridDirty || props.isPlaying) {
+    updateMesh()
+    gridDirty = false
+  }
   composer.render()
 }
 
@@ -361,7 +387,8 @@ onMounted(async () => {
   renderLoop()
 
   resizeObserver = new ResizeObserver(() => {
-    handleResize()
+    if (resizeTimer) clearTimeout(resizeTimer)
+    resizeTimer = setTimeout(handleResize, 100)
   })
   if (canvasRef.value.parentElement) {
     resizeObserver.observe(canvasRef.value.parentElement)
@@ -370,6 +397,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (rafId) cancelAnimationFrame(rafId)
+  if (resizeTimer) clearTimeout(resizeTimer)
   resizeObserver?.disconnect()
   renderer?.dispose()
   composer?.dispose()

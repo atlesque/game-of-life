@@ -3,6 +3,26 @@ export const GRID_ROWS = 70
 
 const MAX_HISTORY = 300
 
+// Precomputed flat neighbor offsets for fast step() — initialized once at module level
+const NEIGHBOR_OFFSETS = new Int32Array(GRID_COLS * GRID_ROWS * 8)
+;(function initNeighborOffsets() {
+  let k = 0
+  for (let row = 0; row < GRID_ROWS; row++) {
+    for (let col = 0; col < GRID_COLS; col++) {
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue
+          const nr = row + dr
+          const nc = col + dc
+          NEIGHBOR_OFFSETS[k++] = (nr >= 0 && nr < GRID_ROWS && nc >= 0 && nc < GRID_COLS)
+            ? nr * GRID_COLS + nc
+            : -1
+        }
+      }
+    }
+  }
+})()
+
 export function useGameOfLife() {
   const grid = ref<Uint8Array>(new Uint8Array(GRID_COLS * GRID_ROWS))
   const generation = ref(0)
@@ -11,6 +31,8 @@ export function useGameOfLife() {
   const drawValue = ref<0 | 1>(1)
   const speed = ref(80) // ms per step
   const history = ref<Uint8Array[]>([])
+  const aliveCellCount = ref(0)
+  const aliveIndices = ref<Uint32Array>(new Uint32Array(0))
 
   // Internal animation state
   let animationFrame: number | null = null
@@ -24,15 +46,15 @@ export function useGameOfLife() {
     return grid.value[row * GRID_COLS + col]
   }
 
-  function countNeighbors(col: number, row: number): number {
-    let n = 0
-    for (let dr = -1; dr <= 1; dr++) {
-      for (let dc = -1; dc <= 1; dc++) {
-        if (dr === 0 && dc === 0) continue
-        n += getCell(col + dc, row + dr)
-      }
+  function rebuildAliveIndices() {
+    const g = grid.value
+    const count = aliveCellCount.value
+    const indices = new Uint32Array(count)
+    let j = 0
+    for (let i = 0; i < g.length; i++) {
+      if (g[i]) indices[j++] = i
     }
-    return n
+    aliveIndices.value = indices
   }
 
   // ──────────────────────────────────────────────
@@ -46,27 +68,47 @@ export function useGameOfLife() {
     }
     history.value.push(snapshot)
 
-    // Apply Conway rules
+    // Apply Conway rules using precomputed neighbor offsets
+    const g = grid.value
     const next = new Uint8Array(GRID_COLS * GRID_ROWS)
-    for (let row = 0; row < GRID_ROWS; row++) {
-      for (let col = 0; col < GRID_COLS; col++) {
-        const alive = getCell(col, row)
-        const neighbors = countNeighbors(col, row)
-        if (alive) {
-          next[row * GRID_COLS + col] = neighbors === 2 || neighbors === 3 ? 1 : 0
-        } else {
-          next[row * GRID_COLS + col] = neighbors === 3 ? 1 : 0
-        }
-      }
+    const offsets = NEIGHBOR_OFFSETS
+    let aliveCount = 0
+
+    for (let i = 0; i < g.length; i++) {
+      let n = 0
+      const base = i * 8
+      if (offsets[base]     >= 0) n += g[offsets[base]]
+      if (offsets[base + 1] >= 0) n += g[offsets[base + 1]]
+      if (offsets[base + 2] >= 0) n += g[offsets[base + 2]]
+      if (offsets[base + 3] >= 0) n += g[offsets[base + 3]]
+      if (offsets[base + 4] >= 0) n += g[offsets[base + 4]]
+      if (offsets[base + 5] >= 0) n += g[offsets[base + 5]]
+      if (offsets[base + 6] >= 0) n += g[offsets[base + 6]]
+      if (offsets[base + 7] >= 0) n += g[offsets[base + 7]]
+
+      const alive = g[i] === 1
+      next[i] = alive ? (n === 2 || n === 3 ? 1 : 0) : (n === 3 ? 1 : 0)
+      if (next[i]) aliveCount++
     }
+
     grid.value = next
+    aliveCellCount.value = aliveCount
     generation.value++
+    rebuildAliveIndices()
   }
 
   function stepBack() {
     if (history.value.length === 0) return
     grid.value = history.value.pop()!
     generation.value = Math.max(0, generation.value - 1)
+    // Recalculate alive count from restored grid
+    let count = 0
+    const g = grid.value
+    for (let i = 0; i < g.length; i++) {
+      if (g[i]) count++
+    }
+    aliveCellCount.value = count
+    rebuildAliveIndices()
   }
 
   // ──────────────────────────────────────────────
@@ -74,17 +116,24 @@ export function useGameOfLife() {
   // ──────────────────────────────────────────────
   function toggleCell(col: number, row: number) {
     if (col < 0 || col >= GRID_COLS || row < 0 || row >= GRID_ROWS) return
+    const idx = row * GRID_COLS + col
+    const wasAlive = grid.value[idx]
     const next = new Uint8Array(grid.value)
-    next[row * GRID_COLS + col] = next[row * GRID_COLS + col] ? 0 : 1
+    next[idx] = wasAlive ? 0 : 1
     grid.value = next
+    aliveCellCount.value += wasAlive ? -1 : 1
+    rebuildAliveIndices()
   }
 
   function paintCell(col: number, row: number, value: 0 | 1) {
     if (col < 0 || col >= GRID_COLS || row < 0 || row >= GRID_ROWS) return
-    if (grid.value[row * GRID_COLS + col] === value) return
+    const idx = row * GRID_COLS + col
+    if (grid.value[idx] === value) return
     const next = new Uint8Array(grid.value)
-    next[row * GRID_COLS + col] = value
+    next[idx] = value
     grid.value = next
+    aliveCellCount.value += value ? 1 : -1
+    rebuildAliveIndices()
   }
 
   // ──────────────────────────────────────────────
@@ -92,19 +141,26 @@ export function useGameOfLife() {
   // ──────────────────────────────────────────────
   function randomize(density = 0.28) {
     const next = new Uint8Array(GRID_COLS * GRID_ROWS)
+    let aliveCount = 0
     for (let i = 0; i < next.length; i++) {
-      next[i] = Math.random() < density ? 1 : 0
+      const v = Math.random() < density ? 1 : 0
+      next[i] = v
+      if (v) aliveCount++
     }
     grid.value = next
+    aliveCellCount.value = aliveCount
     history.value = []
     generation.value = 0
+    rebuildAliveIndices()
   }
 
   function clear() {
     if (isPlaying.value) pause()
     grid.value = new Uint8Array(GRID_COLS * GRID_ROWS)
+    aliveCellCount.value = 0
     history.value = []
     generation.value = 0
+    rebuildAliveIndices()
   }
 
   // ──────────────────────────────────────────────
@@ -126,15 +182,20 @@ export function useGameOfLife() {
     if (isPlaying.value) pause()
     const lines = txt.trim().split('\n')
     const next = new Uint8Array(GRID_COLS * GRID_ROWS)
+    let aliveCount = 0
     for (let row = 0; row < Math.min(lines.length, GRID_ROWS); row++) {
       const line = lines[row].replace(/\r/g, '').trim()
       for (let col = 0; col < Math.min(line.length, GRID_COLS); col++) {
-        next[row * GRID_COLS + col] = line[col] === '1' ? 1 : 0
+        const v = line[col] === '1' ? 1 : 0
+        next[row * GRID_COLS + col] = v
+        if (v) aliveCount++
       }
     }
     grid.value = next
+    aliveCellCount.value = aliveCount
     history.value = []
     generation.value = 0
+    rebuildAliveIndices()
   }
 
   // ──────────────────────────────────────────────
@@ -173,14 +234,6 @@ export function useGameOfLife() {
   // ──────────────────────────────────────────────
   const canStepBack = computed(() => history.value.length > 0)
 
-  const aliveCellCount = computed(() => {
-    let count = 0
-    for (let i = 0; i < grid.value.length; i++) {
-      if (grid.value[i]) count++
-    }
-    return count
-  })
-
   // Cleanup on unmount
   onUnmounted(() => {
     pause()
@@ -196,6 +249,7 @@ export function useGameOfLife() {
     speed,
     canStepBack,
     aliveCellCount,
+    aliveIndices,
     GRID_COLS,
     GRID_ROWS,
     // Actions

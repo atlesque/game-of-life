@@ -52,6 +52,7 @@
         <div class="scanlines" />
         <GameRenderer
           :grid="grid"
+          :alive-indices="aliveIndices"
           :grid-cols="GRID_COLS"
           :grid-rows="GRID_ROWS"
           :is-draw-mode="isDrawMode"
@@ -250,6 +251,7 @@ const {
   speed,
   canStepBack,
   aliveCellCount,
+  aliveIndices,
   GRID_COLS,
   GRID_ROWS,
   step,
