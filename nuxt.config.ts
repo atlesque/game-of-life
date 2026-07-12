@@ -4,6 +4,9 @@ export default defineNuxtConfig({
   future: {
     compatibilityVersion: 4,
   },
+  devServer: { 
+    port: 8540,
+  },
   modules: ['@nuxt/ui'],
   css: ['~/assets/css/main.css'],
   app: {
