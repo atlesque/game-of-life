@@ -229,6 +229,9 @@
           <span>Conway's Game of Life</span>
           <span class="footer-dot">◆</span>
           <span>Three.js + Nuxt 4</span>
+          <span class="footer-dot">◆</span>
+          <a class="footer-link" href="https://tools.atlesque.dev/privacy">Privacy</a>
+          <button type="button" class="footer-link" data-privacy-settings>Privacy settings</button>
         </div>
       </aside>
     </main>
@@ -737,6 +740,7 @@ kbd {
 /* Panel footer */
 .panel-footer {
   padding: 10px 14px;
+  flex-wrap: wrap;
   font-size: 9px;
   color: rgba(179, 229, 252, 0.3);
   letter-spacing: 0.08em;
@@ -751,6 +755,21 @@ kbd {
 .footer-dot {
   color: var(--aero-accent-dim);
   font-size: 6px;
+}
+
+.footer-link {
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.footer-link:hover {
+  color: rgba(179, 229, 252, 0.7);
 }
 
 /* ─── Toast ─────────────────────────────── */
